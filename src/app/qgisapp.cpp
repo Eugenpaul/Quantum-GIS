@@ -224,6 +224,7 @@
 #include "qgsmaptoolvertexedit.h"
 #include "qgsmaptoolzoom.h"
 #include "qgsmaptoolsimplify.h"
+#include "qgsmaptoolsimplifylayer.h"
 #include "qgsmeasuretool.h"
 #include "qgsmaptoolmovelabel.h"
 #include "qgsmaptoolrotatelabel.h"
@@ -834,6 +835,7 @@ void QgisApp::createActions()
   connect( mActionAddRing, SIGNAL( triggered() ), this, SLOT( addRing() ) );
   connect( mActionAddPart, SIGNAL( triggered() ), this, SLOT( addPart() ) );
   connect( mActionSimplifyFeature, SIGNAL( triggered() ), this, SLOT( simplifyFeature() ) );
+  connect( mActionSimplifyLayer, SIGNAL( triggered() ), this, SLOT( simplifyLayer() ) );
   connect( mActionDeleteRing, SIGNAL( triggered() ), this, SLOT( deleteRing() ) );
   connect( mActionDeletePart, SIGNAL( triggered() ), this, SLOT( deletePart() ) );
   connect( mActionMergeFeatures, SIGNAL( triggered() ), this, SLOT( mergeSelectedFeatures() ) );
@@ -1066,6 +1068,7 @@ void QgisApp::createActionGroups()
   mMapToolGroup->addAction( mActionAddRing );
   mMapToolGroup->addAction( mActionAddPart );
   mMapToolGroup->addAction( mActionSimplifyFeature );
+  mMapToolGroup->addAction( mActionSimplifyLayer );
   mMapToolGroup->addAction( mActionDeleteRing );
   mMapToolGroup->addAction( mActionDeletePart );
   mMapToolGroup->addAction( mActionMergeFeatures );
@@ -1749,6 +1752,8 @@ void QgisApp::createCanvasTools()
   mMapTools.mAddPart = new QgsMapToolAddPart( mMapCanvas );
   mMapTools.mSimplifyFeature = new QgsMapToolSimplify( mMapCanvas );
   mMapTools.mSimplifyFeature->setAction( mActionSimplifyFeature );
+  mMapTools.mSimplifyLayer = new QgsMapToolSimplifyLayer( mMapCanvas );
+  mMapTools.mSimplifyLayer->setAction( mActionSimplifyLayer );
   mMapTools.mDeleteRing = new QgsMapToolDeleteRing( mMapCanvas );
   mMapTools.mDeleteRing->setAction( mActionDeleteRing );
   mMapTools.mDeletePart = new QgsMapToolDeletePart( mMapCanvas );
@@ -3752,6 +3757,11 @@ void QgisApp::offsetCurve()
 void QgisApp::simplifyFeature()
 {
   mMapCanvas->setMapTool( mMapTools.mSimplifyFeature );
+}
+
+void QgisApp::simplifyLayer()
+{
+  mMapCanvas->setMapTool( mMapTools.mSimplifyLayer );
 }
 
 void QgisApp::deleteRing()
@@ -6365,6 +6375,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer* layer )
     mActionUndo->setEnabled( false );
     mActionRedo->setEnabled( false );
     mActionSimplifyFeature->setEnabled( false );
+    mActionSimplifyLayer->setEnabled( false);
     mActionAddRing->setEnabled( false );
     mActionAddPart->setEnabled( false );
     mActionDeleteRing->setEnabled( false );
@@ -6504,6 +6515,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer* layer )
         mActionReshapeFeatures->setEnabled( false );
         mActionSplitFeatures->setEnabled( false );
         mActionSimplifyFeature->setEnabled( false );
+        mActionSimplifyLayer->setEnabled( false );
         mActionDeleteRing->setEnabled( false );
         mActionRotatePointSymbols->setEnabled( false );
 
@@ -6525,6 +6537,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer* layer )
           mActionReshapeFeatures->setEnabled( true );
           mActionSplitFeatures->setEnabled( true );
           mActionSimplifyFeature->setEnabled( true );
+          mActionSimplifyLayer->setEnabled( true );
           mActionOffsetCurve->setEnabled( dprovider->capabilities() & QgsVectorDataProvider::ChangeAttributeValues );
         }
         else
@@ -6532,6 +6545,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer* layer )
           mActionReshapeFeatures->setEnabled( false );
           mActionSplitFeatures->setEnabled( false );
           mActionSimplifyFeature->setEnabled( false );
+          mActionSimplifyLayer->setEnabled( false );
         }
 
         mActionAddRing->setEnabled( false );
@@ -6547,6 +6561,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer* layer )
           mActionReshapeFeatures->setEnabled( true );
           mActionSplitFeatures->setEnabled( true );
           mActionSimplifyFeature->setEnabled( true );
+          mActionSimplifyLayer->setEnabled( true );
           mActionDeleteRing->setEnabled( true );
         }
         else
@@ -6555,6 +6570,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer* layer )
           mActionReshapeFeatures->setEnabled( false );
           mActionSplitFeatures->setEnabled( false );
           mActionSimplifyFeature->setEnabled( false );
+          mActionSimplifyLayer->setEnabled( false );
           mActionDeleteRing->setEnabled( false );
         }
       }

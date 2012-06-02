@@ -238,6 +238,7 @@ class QgisApp : public QMainWindow, private Ui::MainWindow
     QAction *actionAddRing() { return mActionAddRing; }
     QAction *actionAddPart() { return mActionAddPart; }
     QAction *actionSimplifyFeature() { return mActionSimplifyFeature; }
+    QAction *actionSimplifyLayer() { return mActionSimplifyLayer; }
     QAction *actionDeleteRing() { return mActionDeleteRing; }
     QAction *actionDeletePart() { return mActionDeletePart; }
     QAction *actionNodeTool() { return mActionNodeTool; }
@@ -713,6 +714,8 @@ class QgisApp : public QMainWindow, private Ui::MainWindow
     void addPart();
     //! simplifies feature
     void simplifyFeature();
+    //! simplifies layer
+    void simplifyLayer();
     //! deletes ring in polygon
     void deleteRing();
     //! deletes part of polygon
@@ -1044,6 +1047,7 @@ class QgisApp : public QMainWindow, private Ui::MainWindow
         QgsMapTool* mAddRing;
         QgsMapTool* mAddPart;
         QgsMapTool* mSimplifyFeature;
+        QgsMapTool* mSimplifyLayer;
         QgsMapTool* mDeleteRing;
         QgsMapTool* mDeletePart;
         QgsMapTool* mNodeTool;

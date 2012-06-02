@@ -69,6 +69,7 @@ SET(QGIS_APP_SRCS
   qgsmaptoolselectradius.cpp
   qgsmaptoolselectutils.cpp
   qgsmaptoolsimplify.cpp
+  qgsmaptoolsimplifylayer.cpp
   qgsmaptoolsplitfeatures.cpp
   qgsmaptooltextannotation.cpp
   qgsmaptoolvertexedit.cpp
@@ -213,6 +214,7 @@ SET (QGIS_APP_MOC_HDRS
   qgsmaptoolselectradius.h
   qgsmaptoolselectrectangle.h
   qgsmaptoolsimplify.h
+  qgsmaptoolsimplifylayer.h
   qgsmaptoolsplitfeatures.h
   qgsmaptoolvertexedit.h
 

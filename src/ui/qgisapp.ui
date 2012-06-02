@@ -17,7 +17,7 @@
      <x>0</x>
      <y>0</y>
      <width>1052</width>
-     <height>28</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="mEditMenu">
@@ -293,6 +293,7 @@
    <addaction name="mActionUndo"/>
    <addaction name="mActionRedo"/>
    <addaction name="mActionSimplifyFeature"/>
+   <addaction name="mActionSimplifyLayer"/>
    <addaction name="mActionAddRing"/>
    <addaction name="mActionAddPart"/>
    <addaction name="mActionDeleteRing"/>
@@ -1671,6 +1672,21 @@
    </property>
    <property name="text">
     <string>Paste style</string>
+   </property>
+  </action>
+  <action name="mActionSimplifyLayer">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../images/images.qrc">
+     <normaloff>:/images/themes/default/mActionSimplify.png</normaloff>:/images/themes/default/mActionSimplify.png</iconset>
+   </property>
+   <property name="text">
+    <string>Simplify Layer</string>
+   </property>
+   <property name="toolTip">
+    <string>Simplify Layer</string>
    </property>
   </action>
  </widget>
