@@ -21,6 +21,62 @@
 #include <QVector>
 #include "qgsfeature.h"
 
+class ExtendedQgsPoint: public QgsPoint
+{
+    bool m_breakForward;
+    bool m_breakBackward;
+
+  public:
+
+    ExtendedQgsPoint() : QgsPoint(), m_breakForward( false ), m_breakBackward( false )
+    {}
+
+    ExtendedQgsPoint( double x, double y ) : QgsPoint( x, y ), m_breakForward( false ), m_breakBackward( false )
+    {}
+
+    bool isBreak(int way)
+    {
+      return way > 0 ? m_breakForward : m_breakBackward;
+    }
+
+    bool isBreakForward()
+    {
+      return m_breakForward;
+    }
+
+    bool isBreakBackward()
+    {
+      return m_breakBackward;
+    }
+
+    void setBreakForward(bool breakForward)
+    {
+      m_breakForward = breakForward;
+    }
+
+    void setBreakBackward(bool breakBackward)
+    {
+      m_breakBackward = breakBackward;
+    }
+
+    ExtendedQgsPoint & operator=( const QgsPoint & other )
+    {
+      this->setX( other.x() );
+      this->setY( other.y() );
+      m_breakForward = false;
+      m_breakBackward = false;
+      return *this;
+    }
+
+    /*ExtendedQgsPoint & operator=( const ExtendedQgsPoint & other )
+    {
+      this->setX( other.x() );
+      this->setY( other.y() );
+      this->setBreak(other.isBreak());
+      return *this;
+    }*/
+};
+
 class QgsMapToolSimplifyLayer: public QgsMapToolEdit
 {
     Q_OBJECT
@@ -37,16 +93,14 @@ class QgsMapToolSimplifyLayer: public QgsMapToolEdit
     QVector<QgsPoint> getPointList( QgsFeature& f );
     QVector<QVector<QVector<QgsPoint> > > getMultiPointList( QgsFeature& f);
 
-
     typedef struct PolygonComplex
     {
-      QVector<QgsPoint> boxTopLeft;
-      QVector<QgsPoint> boxBottomRight;
-      QVector<QgsPoint> breaks;
-      QVector<QVector<QgsPoint> > searchPoints;
-      QVector<QVector<int> > segments_id;
+      QVector< QgsPoint > boxTopLeft;
+      QVector< QgsPoint > boxBottomRight;
+      QVector< QVector <ExtendedQgsPoint> > searchPoints;
+      QVector< QVector <int> > segments_id;
       int featureID;
-    }PolygonComplex;
+    } PolygonComplex;
 
     QVector< QVector<QgsPoint> > mAllSegments;
     QVector<PolygonComplex> mPolygons;
