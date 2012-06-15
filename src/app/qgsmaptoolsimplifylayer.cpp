@@ -27,11 +27,45 @@
 #include <cfloat>
 #include <limits>
 
-#define THRESHOLD 0.1
+QgsSimplifyLayerDialog::QgsSimplifyLayerDialog( QWidget* parent )
+    : QDialog( parent )
+{
+  setupUi( this );
+  connect( thresholdSpinBox, SIGNAL( valueChanged( double ) ),
+           this, SLOT( thresholdChanged( double ) ) );
+  connect( toleranceSpinBox, SIGNAL( valueChanged( double ) ),
+           this, SLOT( toleranceChanged( double ) ) );
+  connect( okButton, SIGNAL( clicked() ),
+           this, SLOT( simplify() ) );
+
+}
+
+void QgsSimplifyLayerDialog::toleranceChanged( double value )
+{
+  emit toleranceChangedSignal( value );
+}
+
+void QgsSimplifyLayerDialog::thresholdChanged( double value )
+{
+  emit thresholdChangedSignal( value );
+}
+
+void QgsSimplifyLayerDialog::simplify()
+{
+  emit simplifySignal();
+}
 
 QgsMapToolSimplifyLayer::QgsMapToolSimplifyLayer( QgsMapCanvas* canvas )
     : QgsMapToolEdit( canvas )
 {
+  mSimplifyLayerDialog = new QgsSimplifyLayerDialog( canvas->topLevelWidget() );
+
+  connect( mSimplifyLayerDialog, SIGNAL( toleranceChangedSignal( double ) ),
+           this, SLOT( toleranceChanged( double ) ) );
+  connect( mSimplifyLayerDialog, SIGNAL( thresholdChangedSignal( double ) ),
+           this, SLOT( thresholdChanged( double ) ) );
+  connect( mSimplifyLayerDialog, SIGNAL( simplifySignal() ),
+           this, SLOT( simplify() ) );
 }
 
 QgsMapToolSimplifyLayer::~QgsMapToolSimplifyLayer()
@@ -173,7 +207,6 @@ void QgsMapToolSimplifyLayer::simplify()
             int tempIndex2;
             int lastjj = -1;
             int lastii = -1;
-            double threshold = THRESHOLD;
             /* for every point in this part starting from first */
             for (int ii = 0; (ii < mPolygons[i].searchPoints[parti].size()) && (!found); ii++)
             {
@@ -184,8 +217,8 @@ void QgsMapToolSimplifyLayer::simplify()
                 firstfound = false;
                 /* found first connected point, then we need to check how to move
                  * clockwise or counterclockwise */
-                if ((abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x()) < threshold) &&
-                    (abs(mPolygons[i].searchPoints[parti][ii].y() - mPolygons[j].searchPoints[partj][jj].y()) < threshold) &&
+                if ((abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x()) < mThreshold) &&
+                    (abs(mPolygons[i].searchPoints[parti][ii].y() - mPolygons[j].searchPoints[partj][jj].y()) < mThreshold) &&
                     (jj >= 0) && (ii < mPolygons[i].searchPoints[parti].size()))
                 {
                   firstfound = true;
@@ -210,8 +243,8 @@ void QgsMapToolSimplifyLayer::simplify()
                     tempi = 0;
                   }
                   /* if true move i forward, j back */
-                  if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < threshold) &&
-                    (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < threshold) &&
+                  if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < mThreshold) &&
+                    (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < mThreshold) &&
                     (!(mPolygons[i].searchPoints[parti][startDeletei].isBreakBackward())))
                   {
                     found = true;
@@ -231,8 +264,8 @@ void QgsMapToolSimplifyLayer::simplify()
                       tempi = 0;
                     }
 
-                    if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < threshold) &&
-                      (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < threshold) &&
+                    if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < mThreshold) &&
+                      (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < mThreshold) &&
                       (!(mPolygons[i].searchPoints[parti][startDeletei].isBreakForward())))
                     {
                       found = true;
@@ -264,12 +297,12 @@ void QgsMapToolSimplifyLayer::simplify()
                       {
                         ii = 0;
                       }
-                      if ((abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x()) < threshold) &&
-                            (abs(mPolygons[i].searchPoints[parti][ii].y() - mPolygons[j].searchPoints[partj][jj].y()) < threshold))
+                      if ((abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x()) < mThreshold) &&
+                            (abs(mPolygons[i].searchPoints[parti][ii].y() - mPolygons[j].searchPoints[partj][jj].y()) < mThreshold))
                       {
                         //qDebug() << "abs(" << mPolygons[i].searchPoints[parti][ii].x() <<"-"
                         //        << mPolygons[j].searchPoints[partj][jj].x() <<") ="<< abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x());
-                        //qDebug() << "threshold" << threshold;
+                        //qDebug() << "mThreshold" << mThreshold;
                         qDebug() << "Found common point [" << ii <<"]["<< jj << "]" << mPolygons[i].searchPoints[parti][ii].x() << mPolygons[i].searchPoints[parti][ii].y() << "and" << mPolygons[j].searchPoints[partj][jj].x() << mPolygons[j].searchPoints[partj][jj].y();
                         sizeDelete++;
                         temp.push_back(mPolygons[i].searchPoints[parti][ii]);
@@ -317,8 +350,8 @@ void QgsMapToolSimplifyLayer::simplify()
                             tempj = mPolygons[j].searchPoints[partj].size() - 1;
                           }
                         }
-                        if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < threshold)
-                        && (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < threshold))
+                        if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < mThreshold)
+                        && (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < mThreshold))
                         {
                           qDebug() << "Found backward common point [" << tempi <<"]["<< tempj << "]" << mPolygons[i].searchPoints[parti][tempi].x() << mPolygons[i].searchPoints[parti][tempi].y() << "and" << mPolygons[j].searchPoints[partj][tempj].x() << mPolygons[j].searchPoints[partj][tempj].y();
                           sizeDelete++;
@@ -501,7 +534,7 @@ void QgsMapToolSimplifyLayer::simplify()
     }
     if (mAllSegments[j].size() > 3)
     {
-      mAllSegments[j] = QgsSimplify::simplifyPoints(mAllSegments[j], 0.4);
+      mAllSegments[j] = QgsSimplify::simplifyPoints(mAllSegments[j], mTolerance);
       //mAllSegments[j].remove(1, mAllSegments[j].size() - 2); //extreme simplification
     }
   }
@@ -557,8 +590,7 @@ void QgsMapToolSimplifyLayer::simplify()
       int j = 1;
       int lastj = 0;
       int counter = 100;
-      float threshold = THRESHOLD;
-      while (!((abs(firstPoint.x() - lastPoint.x()) < threshold) && (abs(firstPoint.y() - lastPoint.y()) < threshold)) && (j < mPolygons[i].segments_id[parti].size()) && (counter > 0))
+      while (!((abs(firstPoint.x() - lastPoint.x()) < mThreshold) && (abs(firstPoint.y() - lastPoint.y()) < mThreshold)) && (j < mPolygons[i].segments_id[parti].size()) && (counter > 0))
       {
         counter--;
         //qDebug() << "CHECK 0";
@@ -570,10 +602,10 @@ void QgsMapToolSimplifyLayer::simplify()
         //if (mPolygons[i].segments_id.size() > 1)
         qDebug() << "Searching for " << lastPoint.x() << lastPoint.y();
         while ((j != lastj) &&
-              (!((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() - lastPoint.x()) < threshold) &&
-              (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].y() - lastPoint.y()) < threshold)) &&
-              !((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() -lastPoint.x()) < threshold) &&
-                (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y() -lastPoint.y()) < threshold))))
+              (!((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() - lastPoint.x()) < mThreshold) &&
+              (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].y() - lastPoint.y()) < mThreshold)) &&
+              !((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() -lastPoint.x()) < mThreshold) &&
+                (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y() -lastPoint.y()) < mThreshold))))
         {
           qDebug() << "Not this " << j << mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() << mAllSegments[mPolygons[i].segments_id[parti][j]][0].y();
           qDebug() << "And not this " << j << mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() << mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y();
@@ -593,8 +625,8 @@ void QgsMapToolSimplifyLayer::simplify()
         //qDebug() << "CHECK found j = " << lastj;
         //qDebug() << "CHECK last point" << mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() << mAllSegments[mPolygons[i].segments_id[parti][j]][0].y();
         //qDebug() << "CHECK first point" << firstPoint.x() << firstPoint.y();
-        if ((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() - lastPoint.x()) < threshold) &&
-            (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].y() - lastPoint.y()) < threshold))
+        if ((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() - lastPoint.x()) < mThreshold) &&
+            (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].y() - lastPoint.y()) < mThreshold))
         {
           for (int jj = 1; jj < mAllSegments[mPolygons[i].segments_id[parti][j]].size(); jj++)
           {
@@ -602,8 +634,8 @@ void QgsMapToolSimplifyLayer::simplify()
             qDebug() << "PUSH BACK  " << temp[parti][temp[parti].size() - 1].x() << temp[parti][temp[parti].size() - 1].y();
           }
         }
-        else if ((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() - lastPoint.x()) < threshold) &&
-          (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y() - lastPoint.y()) < threshold))
+        else if ((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() - lastPoint.x()) < mThreshold) &&
+          (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y() - lastPoint.y()) < mThreshold))
         {
           for (int jj = mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 2; jj >=0; jj--)
           {
@@ -685,7 +717,8 @@ void QgsMapToolSimplifyLayer::deactivate()
 
 void QgsMapToolSimplifyLayer::canvasPressEvent( QMouseEvent * e )
 {
-  simplify();
+  mSimplifyLayerDialog->show();
+  //simplify();
 }
 
 QVector<QgsPoint> QgsMapToolSimplifyLayer::getPointList( QgsFeature& f )
@@ -872,4 +905,14 @@ QVector<QgsPoint> QgsSimplify::simplifyPoints( const QVector<QgsPoint>& pts, dou
   }
   //qDebug() << "Simplified size: " << result.size();
   return result;
+}
+
+void QgsMapToolSimplifyLayer::toleranceChanged( double tolerance )
+{
+  mTolerance = tolerance;
+}
+
+void QgsMapToolSimplifyLayer::thresholdChanged( double threshold )
+{
+  mThreshold = threshold;
 }

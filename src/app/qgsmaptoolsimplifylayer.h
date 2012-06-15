@@ -17,9 +17,33 @@
 #define QGSMAPTOOLSIMPLIFYLAYER_H
 
 #include "qgsmaptooledit.h"
+#include "ui_qgssimplifylayerdialog.h"
 
 #include <QVector>
 #include "qgsfeature.h"
+
+class QgsSimplifyLayerDialog : public QDialog, private Ui::SimplifyLayerDialog
+{
+    Q_OBJECT
+
+  public:
+
+    QgsSimplifyLayerDialog( QWidget* parent = NULL );
+
+
+  signals:
+
+    void thresholdChangedSignal( double threshold );
+    void toleranceChangedSignal( double tolerance );
+    void simplifySignal();
+
+
+  private slots:
+
+    void thresholdChanged( double threshold );
+    void toleranceChanged( double tolerance );
+    void simplify();
+};
 
 class ExtendedQgsPoint: public QgsPoint
 {
@@ -105,8 +129,15 @@ class QgsMapToolSimplifyLayer: public QgsMapToolEdit
     QVector< QVector<QgsPoint> > mAllSegments;
     QVector<PolygonComplex> mPolygons;
 
-    void simplify();
+    QgsSimplifyLayerDialog *mSimplifyLayerDialog;
 
+    double mThreshold;
+    double mTolerance;
+
+  private slots:
+    void simplify();
+    void thresholdChanged( double threshold );
+    void toleranceChanged( double tolerance );
 };
 
 /**
