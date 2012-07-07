@@ -3,7 +3,7 @@
     ---------------------
     begin                : May 2012
     copyright            : (C) 2012 by Evgeniy Pashentsev
-    email                : ugnpaul at mail dot com
+    email                : ugnpaul at gmail dot com
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -19,6 +19,7 @@
 #include "qgsmapcanvas.h"
 #include "qgsvectorlayer.h"
 #include "qgstolerance.h"
+#include "qgstopologicallayer.h"
 
 #include <QMouseEvent>
 #include <QMessageBox>
@@ -83,437 +84,34 @@ void QgsMapToolSimplifyLayer::simplify()
   QgsFeature f;
   int i, size;
   vlayer->select( QgsAttributeList() );
+  QgsTopologicalLayer *tplayer = new QgsTopologicalLayer();
   while ( vlayer->nextFeature( f ) )
   {
-    if (f.geometry()->type() == QGis::Polygon)
-    {
-      if (!f.geometry()->isMultipart())
-      {
-        QVector<QgsPoint> pts = getPointList( f );
-        size = pts.size();
-        if ( size >= 4 )
-        {
-          i++;
-          PolygonComplex currentPolygon;
-          ExtendedQgsPoint point;
-          currentPolygon.searchPoints.append(QVector< ExtendedQgsPoint >());
-          for (int j = 0; j < pts.size(); j++)
-          {
-            point = pts[j];
-            currentPolygon.searchPoints[0].append(point);
-          }
-          currentPolygon.featureID = f.id();
-          mPolygons.push_back(currentPolygon);
-        }
-      }
-      else //if (f.geometry()->isMultipart())
-      {
-        QVector< QVector< QVector<QgsPoint> > > pts = getMultiPointList( f );
-        PolygonComplex currentPolygon;
-        int validPolygonsCounter = 0;
-        for (i = 0; i < pts.size(); i++)
-        {
-          size = pts[i][0].size();
-          if ( size >= 4 )
-          {
-            ExtendedQgsPoint point;
-            currentPolygon.searchPoints.append(QVector< ExtendedQgsPoint >());
-            for (int j = 0; j < pts[i][0].size(); j++)
-            {
-              //qDebug() << "CHECK 000";
-              point = pts[i][0][j];
-              currentPolygon.searchPoints[validPolygonsCounter].append(point);
-              //qDebug() << "CHECK 111";
-            }
-            //qDebug() << "CHECK 222";
-            validPolygonsCounter++;
-          }
-        }
-        //qDebug() << "CHECK 333";
-        mPolygons.push_back(currentPolygon);
-        //qDebug() << "CHECK 444";
-      }
-    }
+    tplayer->addFeature( &f );
   }
-  PolygonComplex currentPolygon;
-  for (int j = 0; j < mPolygons.size(); j++)
-  {
-    for (int jj = 0; jj < mPolygons[j].searchPoints.size(); jj++) //parts in multipart polygon
-    {
-      mPolygons[j].searchPoints[jj].pop_back();
-      mPolygons[j].boxBottomRight.append(QgsPoint(-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max()));
-      mPolygons[j].boxTopLeft.append(QgsPoint(std::numeric_limits<double>::max(), std::numeric_limits<double>::max()));
-      for (i = 0; i < mPolygons[j].searchPoints[jj].size(); i++)
-      {
-        if (mPolygons[j].searchPoints[jj][i].x() < mPolygons[j].boxTopLeft[jj].x())
-        {
-          mPolygons[j].boxTopLeft[jj].setX(mPolygons[j].searchPoints[jj][i].x());
-        }
-        if (mPolygons[j].searchPoints[jj][i].x() > mPolygons[j].boxBottomRight[jj].x())
-        {
-          mPolygons[j].boxBottomRight[jj].setX(mPolygons[j].searchPoints[jj][i].x());
-        }
-        if (mPolygons[j].searchPoints[jj][i].y() < mPolygons[j].boxTopLeft[jj].y())
-        {
-          mPolygons[j].boxTopLeft[jj].setY(mPolygons[j].searchPoints[jj][i].y());
-        }
-        if (mPolygons[j].searchPoints[jj][i].y() > mPolygons[j].boxBottomRight[jj].y())
-        {
-          mPolygons[j].boxBottomRight[jj].setY(mPolygons[j].searchPoints[jj][i].y());
-        }
-      }
-      //qDebug() << "feature " << mPolygons[j].featureID << ": "<< mPolygons[j].boxTopLeft[jj].x() << ", " << mPolygons[j].boxTopLeft[jj].y() << "; "<< mPolygons[j].boxBottomRight[jj].x() << ", " << mPolygons[j].boxBottomRight[jj].y();
-    }
-  }
-  /* searching for connected segments */
-  for (i = 0; i < mPolygons.size() - 1; i++)
-  {
-    for (int j = i; j < mPolygons.size(); j++)
-    {
-      for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
-      {
-        while (mPolygons[i].segments_id.size() < parti + 1)
-        {
-          mPolygons[i].segments_id.append(QVector<int>());
-        }
-        for (int partj = ((i == j) ? parti + 1: 0 ); partj < mPolygons[j].searchPoints.size(); partj++)
-        {
-          while (mPolygons[j].segments_id.size() < partj + 1)
-          {
-            mPolygons[j].segments_id.append(QVector<int>());
-          }
-          if (((mPolygons[i].boxTopLeft[parti].x() - mPolygons[j].boxBottomRight[partj].x())*
-              (mPolygons[i].boxBottomRight[parti].x() - mPolygons[j].boxTopLeft[partj].x()) <= 0) &&
-              ((mPolygons[i].boxTopLeft[parti].y() - mPolygons[j].boxBottomRight[partj].y())*
-              (mPolygons[i].boxBottomRight[parti].y() - mPolygons[j].boxTopLeft[partj].y()) <= 0))
-          {
-              //qDebug() << "feature " << mPolygons[i].featureID << "part" << parti
-//                << "of size" << mPolygons[i].searchPoints[parti].size() << ": "
-//                << mPolygons[i].boxTopLeft[parti].x() << ", " << mPolygons[i].boxTopLeft[parti].y() << "; "
-//                << mPolygons[i].boxBottomRight[parti].x() << ", " << mPolygons[i].boxBottomRight[parti].y() << " intersects "
-//               << "feature " << mPolygons[j].featureID << "part" << partj
-//                << "of size" << mPolygons[j].searchPoints[partj].size() << ": "
-//                << mPolygons[j].boxTopLeft[partj].x() << ", " << mPolygons[j].boxTopLeft[partj].y() << "; "
-//                << mPolygons[j].boxBottomRight[partj].x() << ", " << mPolygons[j].boxBottomRight[partj].y();
-            bool found = false;
-            bool firstfound = false;
-            int way = 0;
-            int startDeletei;
-            int startDeletej;
-            int tempi;
-            int tempj;
-            int sizeDelete;
-            int tempIndex;
-            int tempIndex2;
-            int lastjj = -1;
-            int lastii = -1;
-            /* for every point in this part starting from first */
-            for (int ii = 0; (ii < mPolygons[i].searchPoints[parti].size()) && (!found); ii++)
-            {
-              /* for every point in other part starting from last */
-              if (!mPolygons[i].searchPoints[parti][ii].isBreakForward())
-              for (int jj = mPolygons[j].searchPoints[partj].size() - 1; (jj >= 0) && (!found); jj--)
-              {
-                firstfound = false;
-                /* found first connected point, then we need to check how to move
-                 * clockwise or counterclockwise */
-                if ((abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x()) < mThreshold) &&
-                    (abs(mPolygons[i].searchPoints[parti][ii].y() - mPolygons[j].searchPoints[partj][jj].y()) < mThreshold) &&
-                    (jj >= 0) && (ii < mPolygons[i].searchPoints[parti].size()))
-                {
-                  firstfound = true;
-                  /* TODO found = true if there are more than 2 connected points */
-                  // found = true;
-                  startDeletei = ii;
-                  startDeletej = jj;
-                  sizeDelete = 0;
-                }
-                if (firstfound)
-                {
-                  way = 0;
-                  /* check which way to move */
-                  tempj = startDeletej - 1;
-                  if (tempj < 0)
-                  {
-                    tempj = mPolygons[j].searchPoints[partj].size() - 1;
-                  }
-                  tempi = startDeletei + 1;
-                  if (tempi == mPolygons[i].searchPoints[parti].size())
-                  {
-                    tempi = 0;
-                  }
-                  /* if true move i forward, j back */
-                  if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < mThreshold) &&
-                    (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < mThreshold) &&
-                    (!(mPolygons[i].searchPoints[parti][startDeletei].isBreakBackward())))
-                  {
-                    found = true;
-                    way = -1;
-                  }
+  tplayer->analyzeTopology( mThreshold );
+  tplayer->simplify( mTolerance );
 
-                  if (way == 0)
-                  {
-                    tempj = startDeletej + 1;
-                    if (tempj == mPolygons[j].searchPoints[partj].size())
-                    {
-                      tempj = 0;
-                    }
-                    tempi = startDeletei + 1;
-                    if (tempi == mPolygons[i].searchPoints[parti].size())
-                    {
-                      tempi = 0;
-                    }
+  vlayer->select( QgsAttributeList() );
 
-                    if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < mThreshold) &&
-                      (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < mThreshold) &&
-                      (!(mPolygons[i].searchPoints[parti][startDeletei].isBreakForward())))
-                    {
-                      found = true;
-                      way == 1;
-                    }
-                  }
-                  if (way != 0)
-                  {
-                    bool endOfSegment = false;
-                    QVector<QgsPoint> temp;
-                    temp.push_back(mPolygons[i].searchPoints[parti][ii]);
-                    lastii = ii;
-                    lastjj = jj;
-                    qDebug() << "Found common point [" << ii <<"]["<< jj << "]" << mPolygons[i].searchPoints[parti][ii].x() << mPolygons[i].searchPoints[parti][ii].y() << "and" << mPolygons[j].searchPoints[partj][jj].x() << mPolygons[j].searchPoints[partj][jj].y();
-                    do
-                    {
-                      ii++;
-                      jj += way;
-                      qDebug() << jj << "/" << mPolygons[j].searchPoints[partj].size();
-                      if (jj < 0)
-                      {
-                        jj = mPolygons[j].searchPoints[partj].size() - 1;
-                      }
-                      else if (jj == mPolygons[j].searchPoints[partj].size())
-                      {
-                        jj = 0;
-                      }
-                      if (ii == mPolygons[i].searchPoints[parti].size())
-                      {
-                        ii = 0;
-                      }
-                      if ((abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x()) < mThreshold) &&
-                            (abs(mPolygons[i].searchPoints[parti][ii].y() - mPolygons[j].searchPoints[partj][jj].y()) < mThreshold))
-                      {
-                        //qDebug() << "abs(" << mPolygons[i].searchPoints[parti][ii].x() <<"-"
-                        //        << mPolygons[j].searchPoints[partj][jj].x() <<") ="<< abs(mPolygons[i].searchPoints[parti][ii].x() - mPolygons[j].searchPoints[partj][jj].x());
-                        //qDebug() << "mThreshold" << mThreshold;
-                        qDebug() << "Found common point [" << ii <<"]["<< jj << "]" << mPolygons[i].searchPoints[parti][ii].x() << mPolygons[i].searchPoints[parti][ii].y() << "and" << mPolygons[j].searchPoints[partj][jj].x() << mPolygons[j].searchPoints[partj][jj].y();
-                        sizeDelete++;
-                        temp.push_back(mPolygons[i].searchPoints[parti][ii]);
-                        lastjj = jj;
-                        lastii = ii;
-                      }
-                      else
-                      {
-                        endOfSegment = true;
-                      }
-                    }
-                    while ((!endOfSegment) &&
-                           (!mPolygons[i].searchPoints[parti][ii].isBreakForward()) &&
-                           (!mPolygons[j].searchPoints[partj][jj].isBreak(way)) &&
-                           (ii != startDeletei) && (jj != startDeletej));
-                    mAllSegments.push_back(temp);
-                    mPolygons[i].segments_id[parti].push_back(mAllSegments.size() - 1);
-                    mPolygons[j].segments_id[partj].push_back(mAllSegments.size() - 1);
-                    qDebug() << "found segment of size " << mAllSegments[mAllSegments.size() - 1].size();
-                    /* case when segment could contains last and first point of polygons */
-                    if ((ii != startDeletei) && (jj != startDeletej) &&
-                        (startDeletei == 0) && (!mPolygons[i].searchPoints[parti][startDeletei].isBreakBackward()))
-                    {
-                      bool endExtraLoop = false;
-                      do
-                      {
-                        tempi = startDeletei - 1;
-                        if (tempi < 0)
-                        {
-                          tempi = mPolygons[i].searchPoints[parti].size() - 1;
-                        }
-                        if (way > 0)
-                        {
-                          tempj = startDeletej - 1;
-                          if (tempj < 0)
-                          {
-                            tempj = mPolygons[j].searchPoints[partj].size() - 1;
-                          }
-                        }
-                        else if (way < 0)
-                        {
-                          tempj = lastjj - 1;
-                          if (tempj < 0)//if (tempj == mPolygons[j].searchPoints[partj].size())
-                          {
-                            tempj = mPolygons[j].searchPoints[partj].size() - 1;
-                          }
-                        }
-                        if ((abs(mPolygons[i].searchPoints[parti][tempi].x() - mPolygons[j].searchPoints[partj][tempj].x()) < mThreshold)
-                        && (abs(mPolygons[i].searchPoints[parti][tempi].y() - mPolygons[j].searchPoints[partj][tempj].y()) < mThreshold))
-                        {
-                          qDebug() << "Found backward common point [" << tempi <<"]["<< tempj << "]" << mPolygons[i].searchPoints[parti][tempi].x() << mPolygons[i].searchPoints[parti][tempi].y() << "and" << mPolygons[j].searchPoints[partj][tempj].x() << mPolygons[j].searchPoints[partj][tempj].y();
-                          sizeDelete++;
-                          temp.prepend(mPolygons[i].searchPoints[parti][tempi]);
-                          startDeletei = tempi;
-                          way > 0 ? startDeletej = tempj: lastjj = tempj;
-                        }
-                        else
-                        {
-                          endExtraLoop = true;
-                        }
-                      } while ((!mPolygons[i].searchPoints[parti][tempi].isBreakBackward()) && (!endExtraLoop));
-                    }
-                  }
-                }
-              }
-              if ((found) && (way != 0) && (sizeDelete > 0))
-              {
-                  mPolygons[i].searchPoints[parti][startDeletei].setBreakForward(true);
-                  qDebug() <<"set break i" << startDeletei << mPolygons[i].searchPoints[parti][startDeletei].x() << mPolygons[i].searchPoints[parti][startDeletei].y();
-                  mPolygons[i].searchPoints[parti][lastii].setBreakBackward(true);
-                  qDebug() <<"set break i" << lastii << mPolygons[i].searchPoints[parti][lastii].x() << mPolygons[i].searchPoints[parti][lastii].y();
-                  if (way < 0)
-                  {
-                    tempIndex = lastjj;//(startDeletej - sizeDelete) >= 0 ? (startDeletej - sizeDelete) : (startDeletej - sizeDelete + mPolygons[j].searchPoints[partj].size());
-                    tempIndex2 = startDeletej;
-                  }
-                  else if (way > 0)
-                  {
-                    tempIndex = startDeletej;
-                    tempIndex2 = lastjj;
-                  }
-                  mPolygons[j].searchPoints[partj][tempIndex].setBreakForward(true);
-                  mPolygons[j].searchPoints[partj][tempIndex2].setBreakBackward(true);
-                  qDebug() << "set break j" << tempIndex << mPolygons[j].searchPoints[partj][tempIndex].x() << mPolygons[j].searchPoints[partj][tempIndex].y();
-                  qDebug() << "set break j" << tempIndex2 << mPolygons[j].searchPoints[partj][tempIndex2].x() << mPolygons[j].searchPoints[partj][tempIndex2].y();
-              }
-              if ((found) && ( sizeDelete > 1))
-              {
-                  int deletesize = 0;
-                  if (startDeletei + sizeDelete - 1 >= mPolygons[i].searchPoints[parti].size())
-                  {
-                    deletesize = mPolygons[i].searchPoints[parti].size() - startDeletei - 1;
-                    qDebug() << "CHECK remove from i"<< deletesize << "starting from " << startDeletei + 1;
-                    mPolygons[i].searchPoints[parti].remove(startDeletei + 1, deletesize);
-                    deletesize = sizeDelete - deletesize - 1;
-                    qDebug() << "CHECK remove from i"<< deletesize << "starting from 0";
-                    mPolygons[i].searchPoints[parti].remove(0, deletesize);
-                  }
-                  else
-                  {
-                    qDebug() << "CHECK remove from i"<< sizeDelete - 1 << "starting from " << startDeletei + 1;
-                    mPolygons[i].searchPoints[parti].remove(startDeletei + 1, sizeDelete - 1);
-                  }
-                  if (way < 0)
-                  {
-                    if (startDeletej - sizeDelete + 1 < 0)
-                    {
-                      deletesize = sizeDelete - startDeletej - 1;
-                      qDebug() << "CHECK remove from j" << deletesize << "starting from " << startDeletej - sizeDelete + 1 + mPolygons[j].searchPoints[partj].size();
-                      mPolygons[j].searchPoints[partj].remove(startDeletej - sizeDelete + 1 + mPolygons[j].searchPoints[partj].size(), deletesize);
-                      deletesize = sizeDelete - deletesize - 1;
-                      qDebug() << "CHECK remove from j" << deletesize << "starting from 0";
-                      mPolygons[j].searchPoints[partj].remove(0, deletesize);
-                    }
-                    else
-                    {
-                      qDebug() << "CHECK remove from j" << sizeDelete - 1 << "starting from " << startDeletej - sizeDelete + 1;
-                      mPolygons[j].searchPoints[partj].remove(startDeletej - sizeDelete + 1, sizeDelete - 1);
-                    }
-                  }
-                  else if (way > 0)
-                  {
-                    if (startDeletej + sizeDelete - 1 >= mPolygons[j].searchPoints[partj].size())
-                    {
-                      deletesize = mPolygons[j].searchPoints[partj].size() - startDeletej - 1;
-                      qDebug() << "CHECK remove from j"<< deletesize << "starting from " << startDeletej + 1;
-                      mPolygons[j].searchPoints[partj].remove(startDeletej + 1, deletesize);
-                      deletesize = sizeDelete - deletesize - 1;
-                      qDebug() << "CHECK remove from i"<< deletesize << "starting from 0";
-                      mPolygons[j].searchPoints[partj].remove(0, deletesize);
-                    }
-                    else
-                    {
-                      qDebug() << "CHECK remove from j"<< sizeDelete - 1 << "starting from " << startDeletej + 1;
-                      mPolygons[j].searchPoints[partj].remove(startDeletej + 1, sizeDelete - 2);
-                    }
-                  }
-                }
-                if ((found) && (sizeDelete > 2))
-                {
-                  ii = 0;
-                }
-                found = false;
-                //qDebug() << "i" << i << "j" << j << "parti" << parti << "partj" << partj << "ii" << ii;
-            }
-          }
-        }
-      }
-        //mPolygons[i].
+  QVector<QgsPolyline> poly;
+  while ( vlayer->nextFeature( f ) )
+  {
+    poly = tplayer->getSimplifiedPolyline( f.id() );
+    if (!poly.isEmpty())
+    {
+      //qDebug() << "CHECK set geometry for feature" << f.id();
+      f.setGeometry( QgsGeometry::fromPolygon( poly ) );
+      vlayer->beginEditCommand( tr( "Geometry simplified" ) );
+      vlayer->changeGeometry( f.id(), f.geometry() );
+      vlayer->endEditCommand();
+      //qDebug() << "set geometry for feature" << f.id() << "done";
     }
-    ////qDebug() << "polygon id: " << currentPolygon.featureID << " size: " << currentPolygon.searchPoints.size();
   }
+
+  return;
   //qDebug() << "Searching common segments finished";
-  /* push to segments remaining points */
-  QVector<QgsPoint> temp;
-  for (int i = 0; i < mPolygons.size(); i++)
-  {
-    for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
-    {
-      //qDebug() << "Searching segments in remaining points of " << i << "part" << parti;
-      int lastj = 0;
-      do
-      {
-        lastj--;
-        if (lastj < 0)
-        {
-          lastj = mPolygons[i].searchPoints[parti].size() - 1;
-        }
-      } while (( !mPolygons[i].searchPoints[parti][lastj].isBreakBackward()) && (lastj != 0));
-      int j = lastj;
-      bool first_time = true;
-      do
-      {
-        if ((mPolygons[i].searchPoints[parti][j].isBreakForward()) || ((j == lastj) && (!first_time)))
-        {
-          qDebug() << "Found last alone point [" << j <<"]" << mPolygons[i].searchPoints[parti][j].x() << mPolygons[i].searchPoints[parti][j].y();
-          temp.push_back(mPolygons[i].searchPoints[parti][j]);
-          //qDebug() << "Segment size found: " << temp.size();
-          if (temp.size() > 1)
-          {
-            mAllSegments.push_back(temp);
-            mPolygons[i].segments_id[parti].push_back(mAllSegments.size() - 1);
-          }
-          temp.clear();
-        }
-        else
-        {
-          first_time = false;
-          qDebug() << "Found alone point [" << j <<"]" << mPolygons[i].searchPoints[parti][j].x() << mPolygons[i].searchPoints[parti][j].y();
-          temp.push_back(mPolygons[i].searchPoints[parti][j]);
-        }
-        j++;
-        if (j == mPolygons[i].searchPoints[parti].size())
-        {
-          j = 0;
-        }
-        if (j == lastj)
-        {
-          qDebug() << "Found last alone point [" << j <<"]" << mPolygons[i].searchPoints[parti][j].x() << mPolygons[i].searchPoints[parti][j].y();
-          temp.push_back(mPolygons[i].searchPoints[parti][j]);
-          //qDebug() << "Segment size found: " << temp.size();
-          if (temp.size() > 1)
-          {
-            mAllSegments.push_back(temp);
-            mPolygons[i].segments_id[parti].push_back(mAllSegments.size() - 1);
-          }
-          temp.clear();
-        }
-      } while (j != lastj);
-    }
-  }
+
 
   /* simplification */
   /*//qDebug() << "Start simplification for feature number" << i;
@@ -524,6 +122,7 @@ void QgsMapToolSimplifyLayer::simplify()
       mAllSegments[mPolygons[i].segments_id[j]].remove(1, mAllSegments[mPolygons[i].segments_id[j]].size() - 2);
     }
   }*/
+  /*
   qDebug() << "Start simplification of " << mAllSegments.size() << "segments";
   for (int j = 0; j < mAllSegments.size(); j++)
   {
@@ -549,14 +148,15 @@ void QgsMapToolSimplifyLayer::simplify()
     }
   }
   //qDebug() << "####################################################################";
-
+  */
   //qDebug() << "Finish simplification";
+  /*
   for (int i = 0; i < mPolygons.size(); i++)
   {
     QVector< QVector < QgsPoint > > temp;
     for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
     {
-      /* generating the polygon back */
+      // generating the polygon back
       qDebug() << "##########################################################";
       qDebug() << "Start generating polygon number" << i << "part" << parti;
       temp.append(QVector< QgsPoint > ());
@@ -650,7 +250,7 @@ void QgsMapToolSimplifyLayer::simplify()
             temp.push_back(mAllSegments[mPolygons[i].segments_id[j]][jj]);
           }
         }*/
-        lastPoint = temp[parti][temp[parti].size() - 1];
+        /*lastPoint = temp[parti][temp[parti].size() - 1];
       }
       if (temp[parti][temp[parti].size() - 1] != temp[parti][0])
       {
@@ -707,7 +307,7 @@ void QgsMapToolSimplifyLayer::simplify()
       }
   }
 
-  mCanvas->refresh();
+  mCanvas->refresh();*/
 }
 
 void QgsMapToolSimplifyLayer::deactivate()

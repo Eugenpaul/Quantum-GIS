@@ -45,7 +45,7 @@ class QgsSimplifyLayerDialog : public QDialog, private Ui::SimplifyLayerDialog
     void simplify();
 };
 
-class ExtendedQgsPoint: public QgsPoint
+/*class ExtendedQgsPoint: public QgsPoint
 {
     bool m_breakForward;
     bool m_breakBackward;
@@ -92,14 +92,7 @@ class ExtendedQgsPoint: public QgsPoint
       return *this;
     }
 
-    /*ExtendedQgsPoint & operator=( const ExtendedQgsPoint & other )
-    {
-      this->setX( other.x() );
-      this->setY( other.y() );
-      this->setBreak(other.isBreak());
-      return *this;
-    }*/
-};
+};*/
 
 class QgsMapToolSimplifyLayer: public QgsMapToolEdit
 {
@@ -117,7 +110,7 @@ class QgsMapToolSimplifyLayer: public QgsMapToolEdit
     QVector<QgsPoint> getPointList( QgsFeature& f );
     QVector<QVector<QVector<QgsPoint> > > getMultiPointList( QgsFeature& f);
 
-    typedef struct PolygonComplex
+    /*typedef struct PolygonComplex
     {
       QVector< QgsPoint > boxTopLeft;
       QVector< QgsPoint > boxBottomRight;
@@ -125,9 +118,9 @@ class QgsMapToolSimplifyLayer: public QgsMapToolEdit
       QVector< QVector <int> > segments_id;
       int featureID;
     } PolygonComplex;
-
-    QVector< QVector<QgsPoint> > mAllSegments;
-    QVector<PolygonComplex> mPolygons;
+*/
+//    QVector< QVector<QgsPoint> > mAllSegments;
+//    QVector<PolygonComplex> mPolygons;
 
     QgsSimplifyLayerDialog *mSimplifyLayerDialog;
 

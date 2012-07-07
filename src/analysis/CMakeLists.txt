@@ -37,6 +37,8 @@ SET(QGIS_ANALYSIS_SRCS
   vector/qgsgeometryanalyzer.cpp
   vector/qgszonalstatistics.cpp
   vector/qgsoverlayanalyzer.cpp
+  vector/qgstopologicallayer.cpp
+  vector/qgssimplify.cpp
 )
 
 INCLUDE_DIRECTORIES(BEFORE raster)
@@ -49,7 +51,7 @@ IF (MSVC AND PEDANTIC)
 # 4065 switch with default and no case
 # 4702 unreachable code
 SET_SOURCE_FILES_PROPERTIES(
-                ${CMAKE_BINARY_DIR}/src/analysis/qgsrastercalcparser.cpp 
+                ${CMAKE_BINARY_DIR}/src/analysis/qgsrastercalcparser.cpp
                 PROPERTIES COMPILE_FLAGS "-wd4065 -wd4702")
 ENDIF (MSVC AND PEDANTIC)
 
@@ -70,6 +72,7 @@ SET(QGIS_ANALYSIS_HDRS
   raster/qgsruggednessfilter.h
   raster/qgsslopefilter.h
   vector/qgsgeometryanalyzer.h
+  vector/qgstopologicallayer.h
   vector/qgszonalstatistics.h
   interpolation/qgsinterpolator.h
   interpolation/qgsgridfilewriter.h
@@ -78,7 +81,7 @@ SET(QGIS_ANALYSIS_HDRS
 )
 
 INCLUDE_DIRECTORIES(
-  ${CMAKE_CURRENT_SOURCE_DIR} 
+  ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../core/
   ${CMAKE_CURRENT_SOURCE_DIR}/../core/renderer
   ${CMAKE_CURRENT_SOURCE_DIR}/../core/raster
