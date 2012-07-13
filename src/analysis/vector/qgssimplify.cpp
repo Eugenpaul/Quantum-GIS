@@ -1,6 +1,7 @@
 
 #include "qgssimplify.h"
 #include <QSet>
+#include <QDebug>
 
 QVector<QgsPoint> QgsSimplify::simplifyPoints( const QVector<QgsPoint>& pts, double tolerance )
 {
@@ -112,10 +113,13 @@ QVector<QgsPoint> QgsSimplify::simplifyPoints( const QVector<QgsPoint>& pts, dou
     position = keep2.takeFirst();
     result.append( pts[position] );
   }
-  if (result.size() <4 )
+  if ( result.size() < 4 )
   {
-      //return nullresult;
+      return nullresult;
   }
-  //qDebug() << "Simplified size: " << result.size();
+  else
+  {
+    qDebug() << "-";
+  }
   return result;
 }

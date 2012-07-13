@@ -23,6 +23,10 @@
 
 #include <QMouseEvent>
 #include <QMessageBox>
+#include <QProgressDialog>
+#include <QVBoxLayout>
+#include <QWidget>
+#include <QLabel>
 
 #include <cmath>
 #include <cfloat>
@@ -81,233 +85,84 @@ double abs(double value)
 void QgsMapToolSimplifyLayer::simplify()
 {
   QgsVectorLayer * vlayer = currentVectorLayer();
+  QProgressDialog * pd = new QProgressDialog("Progress...", "Cancel", 0, 100);
+  QVBoxLayout * layout = new QVBoxLayout;
+  QWidget *  win = new QWidget;
+  pd->setWindowModality(Qt::WindowModal);
+  pd->setAutoClose( true );
+  layout->addWidget(pd, Qt::AlignCenter);
+  win->setLayout(layout);
+  win->show();
   QgsFeature f;
   int i, size;
   vlayer->select( QgsAttributeList() );
+  pd->setMaximum( vlayer->featureCount() );
   QgsTopologicalLayer *tplayer = new QgsTopologicalLayer();
+  int featureCount = 0;
+  pd->setLabel( new QLabel("Reading features...") );
   while ( vlayer->nextFeature( f ) )
   {
-    tplayer->addFeature( &f );
+    pd->setValue( featureCount ++ );
+    win->show();
+    if (!tplayer->addFeature( &f ))
+    {
+      return;
+    }
+    if (pd->wasCanceled())
+    {
+      win->hide();
+      return;
+    }
   }
-  tplayer->analyzeTopology( mThreshold );
-  tplayer->simplify( mTolerance );
+
+  if (!tplayer->analyzeTopology( mThreshold, pd ))
+  {
+    win->hide();
+    return;
+  }
+  win->show();
+  if (!tplayer->simplify( mTolerance, pd ))
+  {
+    win->hide();
+    return;
+  }
+  win->show();
 
   vlayer->select( QgsAttributeList() );
-
   QVector<QgsPolyline> poly;
+  pd->setLabel( new QLabel("Changing geometry...") );
+  pd->setValue( 0 );
+  vlayer->beginEditCommand( tr( "Geometry simplified" ) );
+  featureCount = 0;
+  pd->setMaximum( vlayer->featureCount() );
   while ( vlayer->nextFeature( f ) )
   {
+    pd->setValue( featureCount ++ );
+    win->show();
     poly = tplayer->getSimplifiedPolyline( f.id() );
     if (!poly.isEmpty())
     {
       //qDebug() << "CHECK set geometry for feature" << f.id();
-      f.setGeometry( QgsGeometry::fromPolygon( poly ) );
-      vlayer->beginEditCommand( tr( "Geometry simplified" ) );
-      vlayer->changeGeometry( f.id(), f.geometry() );
-      vlayer->endEditCommand();
+      vlayer->changeGeometry( f.id(), QgsGeometry::fromPolygon( poly ) );
+      //vlayer->deleteFeature( f.id() );
       //qDebug() << "set geometry for feature" << f.id() << "done";
     }
+    else
+    {
+      //qDebug() << "CHECKCHECK" << f.id();
+      //return;
+      vlayer->deleteFeature( f.id() );
+    }
+    if (pd->wasCanceled())
+    {
+      win->hide();
+      return;
+    }
   }
-
+  vlayer->endEditCommand();
+  mCanvas->refresh();
+  win->hide();
   return;
-  //qDebug() << "Searching common segments finished";
-
-
-  /* simplification */
-  /*//qDebug() << "Start simplification for feature number" << i;
-  for (int j = 0; j < mPolygons[i].segments_id.size(); j++)
-  {
-    if (mAllSegments[mPolygons[i].segments_id[j]].size() > 1)
-    {
-      mAllSegments[mPolygons[i].segments_id[j]].remove(1, mAllSegments[mPolygons[i].segments_id[j]].size() - 2);
-    }
-  }*/
-  /*
-  qDebug() << "Start simplification of " << mAllSegments.size() << "segments";
-  for (int j = 0; j < mAllSegments.size(); j++)
-  {
-    qDebug() << "Segment" << j << "size" << mAllSegments[j].size();
-    for (int pointi = 0; pointi < mAllSegments[j].size(); pointi++)
-    {
-      qDebug() << pointi << mAllSegments[j][pointi].x() << mAllSegments[j][pointi].y();
-    }
-    if (mAllSegments[j].size() > 3)
-    {
-      mAllSegments[j] = QgsSimplify::simplifyPoints(mAllSegments[j], mTolerance);
-      //mAllSegments[j].remove(1, mAllSegments[j].size() - 2); //extreme simplification
-    }
-  }
-  qDebug() << "CHECK after simplification: ";
-  qDebug() << "###################################################################";
-  for (int j = 0; j < mAllSegments.size(); j++)
-  {
-    qDebug() << "NEXT";
-    for (int pointi = 0; pointi < mAllSegments[j].size(); pointi++)
-    {
-      qDebug() << mAllSegments[j][pointi].x() << mAllSegments[j][pointi].y();
-    }
-  }
-  //qDebug() << "####################################################################";
-  */
-  //qDebug() << "Finish simplification";
-  /*
-  for (int i = 0; i < mPolygons.size(); i++)
-  {
-    QVector< QVector < QgsPoint > > temp;
-    for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
-    {
-      // generating the polygon back
-      qDebug() << "##########################################################";
-      qDebug() << "Start generating polygon number" << i << "part" << parti;
-      temp.append(QVector< QgsPoint > ());
-      QgsPoint firstPoint;
-      QgsPoint lastPoint;
-      //qDebug() << "CHECK mPolygons size: " << mPolygons.size();
-      //qDebug() << "CHECK i: " << i;
-      //qDebug() << "CHECK segments_id size: " << mPolygons[i].segments_id[parti].size();
-      //qDebug() << "CHECK first segment id: " << mPolygons[i].segments_id[0];
-      //qDebug() << "CHECK mAllSegments size: " << mAllSegments.size();
-      if (mPolygons[i].segments_id[parti].size() > 2)
-      for (int j = 0; j < mPolygons[i].segments_id[parti].size(); j++)
-      {
-        qDebug() << "CHECK segment " << j;
-        qDebug() << "first" << mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() <<
-                                                      mAllSegments[mPolygons[i].segments_id[parti][j]][0].y();
-        qDebug() << "last"
-          << mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x()
-          << mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y();
-      }
-      firstPoint = mAllSegments[mPolygons[i].segments_id[parti][0]][0];
-      //qDebug() << "First point added";
-      for (int j = 0; j < mAllSegments[mPolygons[i].segments_id[parti][0]].size(); j++)
-      {
-        //qDebug() << "j = " << j;
-        temp[parti].push_back(mAllSegments[mPolygons[i].segments_id[parti][0]][j]);
-        qDebug() << "FIRST PUSH BACK: " << temp[parti][temp[parti].size() - 1].x() << temp[parti][temp[parti].size() - 1].y();
-      }
-      //qDebug() << "First segment added";
-      lastPoint = temp[parti][temp[parti].size() - 1];
-      int j = 1;
-      int lastj = 0;
-      int counter = 100;
-      while (!((abs(firstPoint.x() - lastPoint.x()) < mThreshold) && (abs(firstPoint.y() - lastPoint.y()) < mThreshold)) && (j < mPolygons[i].segments_id[parti].size()) && (counter > 0))
-      {
-        counter--;
-        //qDebug() << "CHECK 0";
-        j = lastj + 1;
-        if (j == mPolygons[i].segments_id[parti].size())
-        {
-          j = 0;
-        }
-        //if (mPolygons[i].segments_id.size() > 1)
-        qDebug() << "Searching for " << lastPoint.x() << lastPoint.y();
-        while ((j != lastj) &&
-              (!((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() - lastPoint.x()) < mThreshold) &&
-              (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].y() - lastPoint.y()) < mThreshold)) &&
-              !((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() -lastPoint.x()) < mThreshold) &&
-                (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y() -lastPoint.y()) < mThreshold))))
-        {
-          qDebug() << "Not this " << j << mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() << mAllSegments[mPolygons[i].segments_id[parti][j]][0].y();
-          qDebug() << "And not this " << j << mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() << mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y();
-          j++;
-          if (j == mPolygons[i].segments_id[parti].size())
-          {
-            j = 0;
-          }
-        }
-        if (j == lastj)
-        {
-          qDebug() << "BREAK";
-          break;
-        }
-        lastj = j;
-        //qDebug() << "CHECK 1";
-        //qDebug() << "CHECK found j = " << lastj;
-        //qDebug() << "CHECK last point" << mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() << mAllSegments[mPolygons[i].segments_id[parti][j]][0].y();
-        //qDebug() << "CHECK first point" << firstPoint.x() << firstPoint.y();
-        if ((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].x() - lastPoint.x()) < mThreshold) &&
-            (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][0].y() - lastPoint.y()) < mThreshold))
-        {
-          for (int jj = 1; jj < mAllSegments[mPolygons[i].segments_id[parti][j]].size(); jj++)
-          {
-            temp[parti].push_back(mAllSegments[mPolygons[i].segments_id[parti][j]][jj]);
-            qDebug() << "PUSH BACK  " << temp[parti][temp[parti].size() - 1].x() << temp[parti][temp[parti].size() - 1].y();
-          }
-        }
-        else if ((abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].x() - lastPoint.x()) < mThreshold) &&
-          (abs(mAllSegments[mPolygons[i].segments_id[parti][j]][mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 1].y() - lastPoint.y()) < mThreshold))
-        {
-          for (int jj = mAllSegments[mPolygons[i].segments_id[parti][j]].size() - 2; jj >=0; jj--)
-          {
-            temp[parti].push_back(mAllSegments[mPolygons[i].segments_id[parti][j]][jj]);
-            qDebug() << "PUSH BACK  " << temp[parti][temp[parti].size() - 1].x() << temp[parti][temp[parti].size() - 1].y();
-          }
-        }
-        /*else if (mAllSegments[mPolygons[i].segments_id[j]][mAllSegments[mPolygons[i].segments_id[j]].size() - 1] == lastPoint)
-        {
-          for (int jj = mAllSegments[mPolygons[i].segments_id[j]].size() - 1; jj > 1 ; jj--)
-          {
-            temp.push_back(mAllSegments[mPolygons[i].segments_id[j]][jj]);
-          }
-        }*/
-        /*lastPoint = temp[parti][temp[parti].size() - 1];
-      }
-      if (temp[parti][temp[parti].size() - 1] != temp[parti][0])
-      {
-        temp[parti].push_back(temp[parti][0]);
-      }
-    }
-
-      QVector<QgsPolyline> poly;
-      //QgsVectorLayer * vlayer = currentVectorLayer();
-      //vlayer->select(QgsAttributeList());
-
-      QgsFeature f;
-
-      vlayer->select( QgsAttributeList() );
-      bool first = true;
-      bool found = false;
-      //qDebug() << "CHECK set geometry";
-      while ( vlayer->nextFeature( f ) )
-      {
-        //qDebug() << "CHECK f.id(): " << f.id() << "mPolygons[" << i << "].featureID:"<< mPolygons[i].featureID;
-
-        if (f.id() == mPolygons[i].featureID)
-        {
-          found = false;
-          for (int parti = 0; parti < temp.size(); parti++)
-          {
-            //qDebug() << "CHECK temp[parti].size: " << temp[parti].size();
-            if (temp[parti].size() < 4)
-            {
-              //temp.remove(parti);
-              //parti--;
-            }
-            else
-            {
-              found = true;
-              //qDebug() << "CHECK SIMPLIFIED FEATURE NUMBER " << f.id() << "PART" << parti << "LENGTH " << temp[parti].size();
-              for (int iii = 0; iii < temp[parti].size(); iii++)
-              {
-                //qDebug() << temp[parti][iii].x() << temp[parti][iii].y();
-              }
-              poly.append(temp[parti]);
-            }
-          }
-          if (found)
-          {
-            //qDebug() << "CHECK set geometry for feature" << f.id();
-            f.setGeometry( QgsGeometry::fromPolygon( poly ) );
-            vlayer->beginEditCommand( tr( "Geometry simplified" ) );
-            vlayer->changeGeometry( f.id(), f.geometry() );
-            vlayer->endEditCommand();
-            //qDebug() << "set geometry for feature" << f.id() << "done";
-          }
-        }
-      }
-  }
-
-  mCanvas->refresh();*/
 }
 
 void QgsMapToolSimplifyLayer::deactivate()

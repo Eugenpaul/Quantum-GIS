@@ -23,6 +23,7 @@
 */
 #include "qgsfeature.h"
 #include "qgsextendedpoint.h"
+#include <QProgressDialog>
 
 class QgsTopologicalLayer
 {
@@ -30,8 +31,8 @@ class QgsTopologicalLayer
 
     bool addFeature( QgsFeature* feature);
     QVector<QgsPolyline> getSimplifiedPolyline( int id );
-    bool analyzeTopology( double threshold);
-    bool simplify( double tolerance);
+    bool analyzeTopology( double threshold, QProgressDialog * pd);
+    bool simplify( double tolerance, QProgressDialog * pd);
 
   private:
 

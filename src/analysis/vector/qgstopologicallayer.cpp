@@ -18,19 +18,23 @@
 #include "qgstopologicallayer.h"
 #include "qgsgeometry.h"
 #include "qgssimplify.h"
+#include <QLabel>
 
 #include <QDebug>
 #include <cmath>
 #include <cfloat>
 #include <limits>
 
+
 bool QgsTopologicalLayer::addFeature( QgsFeature* feature)
 {
   int size;
   if (feature->geometry()->type() == QGis::Polygon)
   {
+    qDebug() << "check OK";
     if (!feature->geometry()->isMultipart())
     {
+      qDebug() << "check not multipart";
       QVector<QgsPoint> pts = getPointList( feature );
       if ( pts.size() >= 4 )
       {
@@ -67,12 +71,25 @@ bool QgsTopologicalLayer::addFeature( QgsFeature* feature)
     }
     else //if (f.geometry()->isMultipart())
     {
+      qDebug() << "check OK 2";
       QVector< QVector< QVector<QgsPoint> > > pts = getMultiPointList( feature );
       DividedPolygon currentPolygon;
       int validPolygonsCounter = 0; //counter of parts in multipart feature
       for (int i = 0; i < pts.size(); i++)
       {
         size = pts[i][0].size();
+        qDebug() << "size = " << size;
+        /*//if (pts[i].size() > 1)
+        {
+          for (int j = 0; j < pts[i].size(); j++)
+          {
+            for (int jj = 0; jj < pts[i][j].size(); jj++)
+            {
+              qDebug() << i << j << jj << pts[i][j][jj].x() << pts[i][j][jj].y();
+            }
+          }
+          return false;
+        }*/
         if ( size >= 4 )
         {
           QgsExtendedPoint point;
@@ -108,13 +125,31 @@ bool QgsTopologicalLayer::addFeature( QgsFeature* feature)
       mPolygons.push_back(currentPolygon);
     }
   }
+  else
+  {
+    qDebug() << "type: " << feature->geometry()->type();
+  }
   return true;
 }
 
-bool QgsTopologicalLayer::analyzeTopology( double threshold )
+bool QgsTopologicalLayer::analyzeTopology( double threshold, QProgressDialog *pd )
 {
-  for (int i = 0; i < mPolygons.size() - 1; i++)
+  pd->setLabel( new QLabel("Analyzing...") );
+  pd->setMaximum( mPolygons.size() );
+  for (int i = 0; i < mPolygons.size(); i++)
   {
+    pd->setValue( i );
+    /*if (mPolygons[i].featureID == 13)
+    {
+      for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
+      {
+        for (int ii = 0; ii < mPolygons[i].searchPoints[parti].size(); ii++)
+        {
+          qDebug() << i << parti << ii << mPolygons[i].searchPoints[parti][ii].x() << mPolygons[i].searchPoints[parti][ii].y();
+        }
+      }
+      return false;
+    }*/
     for (int j = i; j < mPolygons.size(); j++)
     {
       for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
@@ -569,46 +604,23 @@ bool QgsTopologicalLayer::analyzeTopology( double threshold )
       } while (j != lastj);
     }
   }
-  int segment_id;
-  for (int i = 0; i < mPolygons.size() - 1; i++)
-  {
-    for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
-    {
-      for (int ii = 0; ii < mPolygons[i].searchPoints[parti].size(); ii++)
-      {
-        qDebug() << "CHECK next segment of " << i << parti << ":" << ii;
-        if (mPolygons[i].searchPoints[parti][ii].isBreakForward())
-        {
-          segment_id = mPolygons[i].searchPoints[parti][ii].getBreakForwardId();
-          qDebug() << "segment_id: " << segment_id;
-          if (mPolygons[i].searchPoints[parti][ii].breakForwardIsStart())
-          {
-            for (int j = 0; j < mSegments[segment_id].size(); j++)
-            {
-              qDebug() << j << mSegments[segment_id][j].x() << mSegments[segment_id][j].y();
-            }
-          }
-          else
-          {
-            for (int j = mSegments[segment_id].size() - 1; j >= 0; j--)
-            {
-              qDebug() << j << mSegments[segment_id][j].x() << mSegments[segment_id][j].y();
-            }
-          }
-        }
-      }
-    }
-  }
   return true;
 }
 
-bool QgsTopologicalLayer::simplify( double tolerance)
+bool QgsTopologicalLayer::simplify( double tolerance, QProgressDialog * pd )
 {
+  pd->setLabel( new QLabel("Simplifying...") );
+  pd->setMaximum( mSegments.size() );
   for (int j = 0; j < mSegments.size(); j++)
   {
+    pd->setValue( j );
     if (mSegments[j].size() > 2)
     {
       mSegments[j] = QgsSimplify::simplifyPoints(mSegments[j], tolerance);
+    }
+    if (pd->wasCanceled())
+    {
+      return false;
     }
   }
   return true;
@@ -627,14 +639,14 @@ QVector<QgsPolyline> QgsTopologicalLayer::getSimplifiedPolyline( int id )
     {
       for (int parti = 0; parti < mPolygons[i].searchPoints.size(); parti++)
       {
-        qDebug() << "polygon number " << i << "part " << parti;
+        //qDebug() << "polygon number " << i << "part " << parti;
         temp.append( QVector<QgsPoint>() );
         for (int ii  = 0; ii < mPolygons[i].searchPoints[parti].size(); ii++)
         {
           if (mPolygons[i].searchPoints[parti][ii].isBreakForward())
           {
             segmentId = mPolygons[i].searchPoints[parti][ii].getBreakForwardId();
-            qDebug() << "segmentId: " << segmentId;
+            //qDebug() << "segmentId: " << segmentId;
             if (!mSegments[segmentId].isEmpty())
             {
               if (mPolygons[i].searchPoints[parti][ii].breakForwardIsStart())
@@ -642,7 +654,7 @@ QVector<QgsPolyline> QgsTopologicalLayer::getSimplifiedPolyline( int id )
                 for (int j = 0; j < mSegments[segmentId].size(); j++)
                 {
                   temp[temp.size() - 1].append( mSegments[segmentId][j] );
-                  qDebug() << mSegments[segmentId][j].x() << mSegments[segmentId][j].y();
+                  //qDebug() << mSegments[segmentId][j].x() << mSegments[segmentId][j].y();
                 }
               }
               else
@@ -650,7 +662,7 @@ QVector<QgsPolyline> QgsTopologicalLayer::getSimplifiedPolyline( int id )
                 for (int j = mSegments[segmentId].size() - 1; j >= 0; j--)
                 {
                   temp[temp.size() - 1].append( mSegments[segmentId][j] );
-                  qDebug() << mSegments[segmentId][j].x() << mSegments[segmentId][j].y();
+                  //qDebug() << mSegments[segmentId][j].x() << mSegments[segmentId][j].y();
                 }
               }
             }
@@ -674,7 +686,7 @@ QVector<QgsPolyline> QgsTopologicalLayer::getSimplifiedPolyline( int id )
 QVector<QgsPoint> QgsTopologicalLayer::getPointList( QgsFeature *f )
 {
   QgsGeometry* line = f->geometry();
-  if (( line->type() != QGis::Line && line->type() != QGis::Polygon ) || line->isMultipart() )
+  if (( line->type() != QGis::Line && line->type() != QGis::Polygon ))// || line->isMultipart() )
   {
     return QVector<QgsPoint>();
   }
@@ -686,7 +698,7 @@ QVector<QgsPoint> QgsTopologicalLayer::getPointList( QgsFeature *f )
   {
     if ( line->asPolygon().size() > 1 )
     {
-      return QVector<QgsPoint>();
+      return line->asPolygon()[0];//QVector<QgsPoint>();
     }
     return line->asPolygon()[0];
   }
